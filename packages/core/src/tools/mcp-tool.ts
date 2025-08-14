@@ -122,6 +122,29 @@ export class DiscoveredMCPTool extends BaseTool<ToolParams, ToolResult> {
     return confirmationDetails;
   }
 
+  // Validate that the response does not contain errors
+  // This is needed because CallToolResults should return errors inside the response.
+  // ref: https://modelcontextprotocol.io/specification/2025-06-18/schema#calltoolresult
+  private _validateNotError(rawResponseParts: Part[]): void {
+    const functionResponse = rawResponseParts?.[0]?.functionResponse;
+    const response = functionResponse?.response;
+
+    interface McpError {
+      isError?: boolean;
+    }
+
+    if (response) {
+      const error = (response as { error?: McpError })?.error;
+      const isError = error?.isError;
+
+      if (error && isError) {
+        throw new Error(
+          `MCP tool '${this.serverToolName}' reported the error: ${JSON.stringify(error)}`,
+        );
+      }
+    }
+  }
+
   async execute(params: ToolParams): Promise<ToolResult> {
     const functionCalls: FunctionCall[] = [
       {
@@ -131,6 +154,10 @@ export class DiscoveredMCPTool extends BaseTool<ToolParams, ToolResult> {
     ];
 
     const rawResponseParts = await this.mcpTool.callTool(functionCalls);
+
+    // Ensure the response is not an error
+    this._validateNotError(rawResponseParts);
+
     const transformedParts = transformMcpContentToParts(rawResponseParts);
 
     return {

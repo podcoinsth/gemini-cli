@@ -195,6 +195,33 @@ describe('DiscoveredMCPTool', () => {
       await expect(tool.execute(params)).rejects.toThrow(expectedError);
     });
 
+    it('should consider a ToolResult with isError true to be a failure', async () => {
+      const tool = new DiscoveredMCPTool(
+        mockCallableToolInstance,
+        serverName,
+        serverToolName,
+        baseDescription,
+        inputSchema,
+      );
+      const params = { param: 'isErrorTrueCase' };
+
+      const errorResponse = { isError: true };
+      const mockMcpToolResponseParts: Part[] = [
+        {
+          functionResponse: {
+            name: serverToolName,
+            response: { error: errorResponse },
+          },
+        },
+      ];
+      mockCallTool.mockResolvedValue(mockMcpToolResponseParts);
+      const expectedError = new Error(
+        `MCP tool '${serverToolName}' reported the error: ${JSON.stringify(errorResponse)}`,
+      );
+
+      await expect(tool.execute(params)).rejects.toThrow(expectedError);
+    });
+
     it('should handle a simple text response correctly', async () => {
       const tool = new DiscoveredMCPTool(
         mockCallableToolInstance,
